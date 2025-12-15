@@ -20,3 +20,8 @@ jobs:
             cd /root/WyPIC
             git pull origin main
             systemctl restart wypic
+
+      - name: Check secrets
+        run: |
+          echo "HOST=${{ secrets.SERVER_HOST }}"
+          echo "USER=${{ secrets.SERVER_USER }}"
