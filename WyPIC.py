@@ -9,6 +9,8 @@ from googletrans import Translator, LANGUAGES
 import aiosqlite
 import os
 
+
+load_dotenv()
 API_TOKEN = os.getenv("API_TOKEN")
 
 
@@ -204,7 +206,6 @@ async def handle_message(message: types.Message):
 
     user_text = await translate_to_english(user_text)
     user_model = await get_cell(message.from_user.id, 'model')
-    print(user_model)
 
     image_url = await generate_image(user_text, user_model)
 
@@ -242,3 +243,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
