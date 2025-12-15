@@ -1,1 +1,22 @@
+name: Deploy WyPIC Bot
 
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}       # IP сервера
+          username: ${{ secrets.SERVER_USER }}   # root
+          key: ${{ secrets.SERVER_SSH_KEY }}     # приватный SSH ключ
+          script: |
+            cd /root/WyPIC
+            git pull origin main
+            systemctl restart wypic
