@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: deploy-wypic
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
