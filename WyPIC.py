@@ -236,7 +236,7 @@ async def handle_message(message: types.Message):
 # -----------------------------
 
 async def main():
-    print("Бот запущен...v1.0")
+    print("Бот запущен...v1.1")
     await dp.start_polling(bot)
 
 
@@ -244,5 +244,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
