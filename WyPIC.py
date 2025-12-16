@@ -139,7 +139,7 @@ async def translate_to_english(text: str) -> str:
 async def start_cmd(message: types.Message):
     await add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
 
-    await message.reply("Привет! Я WyPIC, я могу нарисовать всё что за хочешь, просто оправить мне текст\nИспользуй /models, чтобы выбрать модель")
+    await message.reply("ПППППривет! Я WyPIC, я могу нарисовать всё что за хочешь, просто оправить мне текст\nИспользуй /models, чтобы выбрать модель")
 
 
 
@@ -244,6 +244,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
