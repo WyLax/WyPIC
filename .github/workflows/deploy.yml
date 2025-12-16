@@ -27,5 +27,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}     # приватный SSH ключ
           script: |
             cd /root/WyPIC
-            git pull origin main
+            git fetch --all
+            git reset --hard origin/main
+            systemctl daemon-reload
             systemctl restart wypic
