@@ -10,7 +10,7 @@ import aiosqlite
 import os
 from dotenv import load_dotenv
 
-print(111)
+
 load_dotenv()
 API_TOKEN = os.getenv("API_TOKEN")
 
@@ -236,7 +236,7 @@ async def handle_message(message: types.Message):
 # -----------------------------
 
 async def main():
-    print("Бот запущен...")
+    print("Бот запущен...тест")
     await dp.start_polling(bot)
 
 
