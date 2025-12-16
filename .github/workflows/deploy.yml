@@ -8,7 +8,7 @@ on:
       - WyPIC.py   # workflow срабатывает только если изменился этот файл
 
 concurrency:
-  group: deploy-wypic
+  group: deploy-wypic-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -16,23 +16,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check secrets
-        run: |
-          echo "HOST=${{ secrets.SERVER_HOST }}"
-          echo "USER=${{ secrets.SERVER_USER }}"
-
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Wait before deploy
-        run: sleep 5  # небольшая задержка перед деплоем
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.SERVER_HOST }}       # IP сервера
-          username: ${{ secrets.SERVER_USER }}   # root
-          key: ${{ secrets.SERVER_SSH_KEY }}     # приватный SSH ключ
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /root/WyPIC
             git fetch --all
