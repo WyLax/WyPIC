@@ -4,11 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - WyPIC.py   # workflow срабатывает только если изменился этот файл
 
 concurrency:
-  group: deploy-wypic-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -16,8 +14,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout latest code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
