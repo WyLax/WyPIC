@@ -10,7 +10,7 @@ import aiosqlite
 import os
 from dotenv import load_dotenv
 
-
+print(111)
 load_dotenv()
 API_TOKEN = os.getenv("API_TOKEN")
 
