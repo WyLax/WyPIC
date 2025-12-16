@@ -236,7 +236,7 @@ async def handle_message(message: types.Message):
 # -----------------------------
 
 async def main():
-    print("Бот запущен...тест")
+    print("Бот запущен...v1.0")
     await dp.start_polling(bot)
 
 
