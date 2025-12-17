@@ -139,7 +139,8 @@ async def translate_to_english(text: str) -> str:
 async def start_cmd(message: types.Message):
     await add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
 
-    await message.reply("Поивеет! Я WyPIC! Я могу нарисовать абсолютно всё, что ты захочешь. Просто отпаравь мне текстовое описание, и я создам изображение.\n\nЧтобы выбрать стиль или модель генерации, используй команду /models")
+    await message.reply("Поивеет! Я WyPIC! Я могу нарисовать абсолютно всё, что ты захочешь. Просто отпаравь мне текстовое описание, и я создам изображение.")
+    await message.answer("Чтобы выбрать стиль или модель генерации, используй команду /models")
 
 
 
