@@ -120,6 +120,7 @@ Bash
 
 npm install
 
+```
 
 ---
 
