@@ -226,7 +226,7 @@ async def handle_message(message: types.Message):
             await bot.send_photo(
                 chat_id = '-1002283294809',
                 photo = image_url,
-                caption = f'• <code>{message.from_user.id}</code>\n• <code>{message.from_user.user_name}</code>\n• <code>{message.from_user.first_name}</code>\n\n• <b>Запрос</b>: <code>{user_text}</code>\n• <b>Модель:</b> <code>{user_model}</code>',
+                caption = f'• <code>{message.from_user.id}</code>\n• <code>{message.from_user.username}</code>\n• <code>{message.from_user.first_name}</code>\n\n• <b>Запрос</b>: <code>{user_text}</code>\n• <b>Модель:</b> <code>{user_model}</code>',
                 parse_mode = 'html'
             )
         except:
