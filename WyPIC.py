@@ -1,255 +1,204 @@
 import asyncio
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-from aiogram import F
-from g4f.client import Client
-from g4f.client import AsyncClient
-from googletrans import Translator, LANGUAGES
-import aiosqlite
 import os
 from dotenv import load_dotenv
 
+from aiogram import Bot, Dispatcher, F
+from aiogram.filters import Command
+from aiogram.types import (
+    Message,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    CallbackQuery
+)
+
+import aiosqlite
+from g4f.client import Client
+
+# =============================
+# ENV
+# =============================
 
 load_dotenv()
 API_TOKEN = os.getenv("API_TOKEN")
 
+# =============================
+# BOT / CLIENT
+# =============================
 
-# g4f
-client = Client()
-translator = Translator()
-
-# бот
 bot = Bot(API_TOKEN)
 dp = Dispatcher()
+client = Client()
 
-# aiosqlite
-base = 'WyPIC.db'
-models1 = [
-    "flux",
-    "flux-pro",
-    "flux-realism",
-    "flux-3d",
-    "ProdiaStableDiffusionXL"
-]
-models2 = [
-    "Prodia",
-    "stability-ai",
-    "Pixart",
-    "PixartLCM"
-]
-models1n = [
-    "Flux",
-    "Flux Pro",
-    "Flux Realism",
-    "Flux 3D",
-    "Prodia Stable Diffusion XL"
-]
-models2n = [
-    "Prodia",
-    "Stability AI",
-    "Pixart",
-    "Pixart LCM"
-]
+# =============================
+# DATABASE
+# =============================
 
-# -----------------------------
-# sqlite
-# -----------------------------
+DB_NAME = "WyPIC.db"
+
+async def init_db():
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY,
+                user_name TEXT,
+                name TEXT,
+                model TEXT DEFAULT 'flux'
+            )
+        """)
+        await db.commit()
 
 async def add_user(user_id, username, name):
-    async with aiosqlite.connect(base) as db:
+    async with aiosqlite.connect(DB_NAME) as db:
         await db.execute(
             "INSERT OR IGNORE INTO users (id, user_name, name) VALUES (?, ?, ?)",
             (user_id, username, name)
         )
         await db.commit()
 
-
-async def upd_cell(user_id, column_name, value):
-    async with aiosqlite.connect(base) as db:
-        await db.execute(
-            f'UPDATE users SET {column_name} = ? WHERE id = ?',
-            (value, user_id)
-        )
-        await db.commit()
-
-
-async def get_cell(user_id, column_name):
-    async with aiosqlite.connect(base) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(f"SELECT {column_name} FROM users WHERE id = ?", (user_id,)) as cursor:
+async def get_model(user_id):
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute(
+            "SELECT model FROM users WHERE id = ?", (user_id,)
+        ) as cursor:
             row = await cursor.fetchone()
-            if row:
-                return row[column_name]
-            return None
+            return row[0] if row else "flux"
 
-# -----------------------------
-# генерация картинки
-# -----------------------------
+# =============================
+# IMAGE GENERATION
+# =============================
 
-async def generate_image(prompt, model) -> str:
-
+async def generate_image(prompt: str, model: str) -> str:
     try:
         response = await client.images.async_generate(
-            model = model,
-            prompt = prompt,
-            response_format = "url"
+            model=model,
+            prompt=prompt,
+            response_format="url"
         )
         return response.data[0].url
+    except Exception:
+        return "ERROR"
 
-    except:
-        return f"Ошибка"
+# =============================
+# EPOCH DATA
+# =============================
 
-# -----------------------------
-# генерация текста
-# -----------------------------
-
-async def generate_text(prompt: str) -> str:
-
-    try:
-        async_client = AsyncClient()
-        response = await async_client.chat.completions.create(
-            model = "gpt-4",
-            messages = [{"role": "user", "content": prompt}],
+EPOCHS = {
+    "epoch_10_12": {
+        "title": "🟫 X–XII века — Древняя Русь",
+        "text": (
+            "Чёрная металлургия носила ремесленный характер.\n\n"
+            "Использовались домницы, болотная руда и ручной труд кузнецов. "
+            "Железо применялось для орудий труда, оружия и быта."
+        ),
+        "prompt": (
+            "Ancient Rus X–XII century, iron smelting in bloomery furnace, "
+            "old russian blacksmiths, clay furnace, fire and glowing metal, "
+            "forest landscape, historical reconstruction, realistic, cinematic, 4k"
         )
-        return response.choices[0].message.content
+    },
 
-    except:
-        return f"Ошибка"
+    "epoch_13_15": {
+        "title": "🟫 XIII–XV века — Московская Русь",
+        "text": (
+            "Металлургия развивается вместе с ростом городов.\n\n"
+            "Увеличивается производство оружия, формируются кузнечные слободы, "
+            "металл становится стратегическим ресурсом."
+        ),
+        "prompt": (
+            "Medieval Russia XIII–XV century, blacksmith settlement, iron forging, "
+            "early furnaces, city outskirts, historical realism, cinematic lighting"
+        )
+    },
 
-# -----------------------------
-# перевод
-# -----------------------------
+    "epoch_16_17": {
+        "title": "🟫 XVI–XVII века — Мануфактуры",
+        "text": (
+            "Появляются первые металлургические мануфактуры.\n\n"
+            "Используются водяные колёса, усиливается государственный контроль, "
+            "производство выходит за рамки ремесла."
+        ),
+        "prompt": (
+            "Russia XVI–XVII century, early iron manufactory, water wheel, "
+            "industrial furnaces, workers, realistic historical scene, 4k"
+        )
+    },
 
-async def translate_to_english(text: str) -> str:
+    "epoch_18": {
+        "title": "🟫 XVIII век — Урал",
+        "text": (
+            "Формируется крупная промышленная металлургия.\n\n"
+            "Уральские заводы, доменные печи, массовое производство чугуна. "
+            "Россия — лидер Европы по выплавке железа."
+        ),
+        "prompt": (
+            "Russia XVIII century, Ural ironworks, blast furnace, industrial scale, "
+            "smoke, fire, workers, Demidov factories, cinematic realism, 4k"
+        )
+    }
+}
 
-    translation = await translator.translate(
-        text,
-        src='ru',
-        dest='en'
-    )
+# =============================
+# KEYBOARDS
+# =============================
 
-    return translation.text
+epoch_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="X–XII век", callback_data="epoch_10_12")],
+        [InlineKeyboardButton(text="XIII–XV век", callback_data="epoch_13_15")],
+        [InlineKeyboardButton(text="XVI–XVII век", callback_data="epoch_16_17")],
+        [InlineKeyboardButton(text="XVIII век", callback_data="epoch_18")]
+    ]
+)
 
-# -----------------------------
-# обработчики бота
-# -----------------------------
+# =============================
+# HANDLERS
+# =============================
 
 @dp.message(Command("start"))
-async def start_cmd(message: types.Message):
-    await add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
-
-    await message.reply("Поивеет! Я WyPIC! Я могу нарисовать абсолютно всё, что ты захочешь. Просто отпаравь мне текстовое описание, и я создам изображение.")
-    await message.answer("Чтобы выбрать стиль или модель нейросети, используй команду /models")
-
-
-
-@dp.message(Command("models"))
-async def models_cmd(message: Message):
-    await add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
-
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=models1n[i], callback_data=models1[i]),
-             InlineKeyboardButton(text=models2n[i], callback_data=models2[i])]
-            for i in range(len(models2))
-        ] + [
-            [InlineKeyboardButton(text=models1n[-1], callback_data=models1[-1])]
-        ]
+async def start_cmd(message: Message):
+    await add_user(
+        message.from_user.id,
+        message.from_user.username,
+        message.from_user.first_name
     )
-
-    user_model = await get_cell(message.from_user.id, 'model')
 
     await message.answer(
-        f"<b>Установлено:</b> <code>{user_model}</code>\n<b>Список моделей нейросетей:</b>",
-        reply_markup=keyboard,
-        parse_mode='html'
+        "🏭 История чёрной металлургии в России (X–XVIII вв.)\n\n"
+        "Выбери эпоху:",
+        reply_markup=epoch_kb
     )
 
+@dp.callback_query(F.data.startswith("epoch_"))
+async def epoch_handler(callback: CallbackQuery):
+    epoch = EPOCHS.get(callback.data)
+    if not epoch:
+        await callback.answer("Ошибка")
+        return
 
+    await callback.message.answer("⏳ Генерирую изображение...")
 
-@dp.callback_query()
-async def model_click(callback: CallbackQuery):
-    await add_user(callback.from_user.id, callback.from_user.username, callback.from_user.first_name)
+    model = await get_model(callback.from_user.id)
+    image_url = await generate_image(epoch["prompt"], model)
 
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=models1n[i], callback_data=models1[i]),
-             InlineKeyboardButton(text=models2n[i], callback_data=models2[i])]
-            for i in range(len(models2))
-        ] + [
-            [InlineKeyboardButton(text=models1n[-1], callback_data=models1[-1])]
-        ]
+    if image_url == "ERROR":
+        await callback.message.answer("Ошибка генерации изображения")
+        return
+
+    await callback.message.answer_photo(
+        photo=image_url,
+        caption=f"{epoch['title']}\n\n{epoch['text']}"
     )
-
-    user_model = callback.data
-    if user_model != await get_cell(callback.from_user.id, 'model'):
-
-        await upd_cell(callback.from_user.id, 'model', user_model)
-
-        await callback.message.edit_text(
-        f"<b>Установлено:</b> <code>{user_model}</code>\n<b>Список моделей нейросетей:</b>",
-        reply_markup=keyboard,
-        parse_mode='html'
-        )
-
-
 
     await callback.answer()
 
-
-
-@dp.message()
-async def handle_message(message: types.Message):
-    await add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
-
-    user_text = message.text
-    gen = await message.reply("Генерирую картинку, подожди...")
-
-    user_text = await translate_to_english(user_text)
-    user_model = await get_cell(message.from_user.id, 'model')
-
-    image_url = await generate_image(user_text, user_model)
-
-    await gen.delete()
-
-    if image_url.startswith("Ошибка"):
-        await message.reply('Прости, я задумался, повтори свой запрос')
-    else:
-        try:
-            await message.reply_photo(
-                photo = image_url,
-                caption = f'<b>Запрос:</b> <code>{user_text}</code>\n<b>Модель:</b> <code>{user_model}</code>',
-                parse_mode = 'html'
-            )
-
-            await bot.send_photo(
-                chat_id = '-1002283294809',
-                photo = image_url,
-                caption = f'• <code>{message.from_user.id}</code>\n• <code>{message.from_user.username}</code>\n• <code>{message.from_user.first_name}</code>\n\n• <b>Запрос</b>: <code>{user_text}</code>\n• <b>Модель:</b> <code>{user_model}</code>',
-                parse_mode = 'html'
-            )
-        except:
-            await message.reply('Прости, я задумался, повтори свой запрос')
-
-# -----------------------------
-# запуска бота
-# -----------------------------
+# =============================
+# MAIN
+# =============================
 
 async def main():
-    print("БАННННН....")
+    await init_db()
+    print("BOT STARTED")
     await dp.start_polling(bot)
-
-
-
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-
-
-
-
-
-
