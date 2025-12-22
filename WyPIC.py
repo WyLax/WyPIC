@@ -1,5 +1,6 @@
 import asyncio
 import os
+import random
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, F
@@ -84,11 +85,10 @@ async def generate_image(prompt: str, model: str) -> str:
 
 EPOCHS = {
     "epoch_10_12": {
-        "title": "🟫 X–XII века — Древняя Русь",
+        "answer": "X–XII век",
         "text": (
-            "Чёрная металлургия носила ремесленный характер.\n\n"
-            "Использовались домницы, болотная руда и ручной труд кузнецов. "
-            "Железо применялось для орудий труда, оружия и быта."
+            "Металлургия носила ремесленный характер. "
+            "Использовались домницы, болотная руда, ручной труд кузнецов."
         ),
         "prompt": (
             "Ancient Rus X–XII century, iron smelting in bloomery furnace, "
@@ -96,39 +96,33 @@ EPOCHS = {
             "forest landscape, historical reconstruction, realistic, cinematic, 4k"
         )
     },
-
     "epoch_13_15": {
-        "title": "🟫 XIII–XV века — Московская Русь",
+        "answer": "XIII–XV век",
         "text": (
-            "Металлургия развивается вместе с ростом городов.\n\n"
-            "Увеличивается производство оружия, формируются кузнечные слободы, "
-            "металл становится стратегическим ресурсом."
+            "Производство железа расширяется вместе с ростом городов. "
+            "Формируются кузнечные слободы, возрастает спрос на оружие."
         ),
         "prompt": (
             "Medieval Russia XIII–XV century, blacksmith settlement, iron forging, "
-            "early furnaces, city outskirts, historical realism, cinematic lighting"
+            "early furnaces, historical realism, cinematic lighting"
         )
     },
-
     "epoch_16_17": {
-        "title": "🟫 XVI–XVII века — Мануфактуры",
+        "answer": "XVI–XVII век",
         "text": (
-            "Появляются первые металлургические мануфактуры.\n\n"
-            "Используются водяные колёса, усиливается государственный контроль, "
-            "производство выходит за рамки ремесла."
+            "Появляются первые мануфактуры, используются водяные механизмы. "
+            "Металлургия выходит за рамки ремесла."
         ),
         "prompt": (
             "Russia XVI–XVII century, early iron manufactory, water wheel, "
             "industrial furnaces, workers, realistic historical scene, 4k"
         )
     },
-
     "epoch_18": {
-        "title": "🟫 XVIII век — Урал",
+        "answer": "XVIII век",
         "text": (
-            "Формируется крупная промышленная металлургия.\n\n"
-            "Уральские заводы, доменные печи, массовое производство чугуна. "
-            "Россия — лидер Европы по выплавке железа."
+            "Формируется крупная промышленная металлургия. "
+            "Уральские заводы и доменные печи обеспечивают массовую выплавку чугуна."
         ),
         "prompt": (
             "Russia XVIII century, Ural ironworks, blast furnace, industrial scale, "
@@ -138,15 +132,27 @@ EPOCHS = {
 }
 
 # =============================
+# QUIZ STATE
+# =============================
+
+current_epoch = {}
+
+# =============================
 # KEYBOARDS
 # =============================
 
-epoch_kb = InlineKeyboardMarkup(
+quiz_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="X–XII век", callback_data="epoch_10_12")],
-        [InlineKeyboardButton(text="XIII–XV век", callback_data="epoch_13_15")],
-        [InlineKeyboardButton(text="XVI–XVII век", callback_data="epoch_16_17")],
-        [InlineKeyboardButton(text="XVIII век", callback_data="epoch_18")]
+        [InlineKeyboardButton(text="X–XII век", callback_data="answer_10_12")],
+        [InlineKeyboardButton(text="XIII–XV век", callback_data="answer_13_15")],
+        [InlineKeyboardButton(text="XVI–XVII век", callback_data="answer_16_17")],
+        [InlineKeyboardButton(text="XVIII век", callback_data="answer_18")]
+    ]
+)
+
+next_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="🎲 Следующий вопрос", callback_data="next_quiz")]
     ]
 )
 
@@ -162,33 +168,59 @@ async def start_cmd(message: Message):
         message.from_user.first_name
     )
 
-    await message.answer(
-        "🏭 История чёрной металлургии в России (X–XVIII вв.)\n\n"
-        "Выбери эпоху:",
-        reply_markup=epoch_kb
-    )
+    epoch_key = random.choice(list(EPOCHS.keys()))
+    current_epoch[message.from_user.id] = epoch_key
+    epoch = EPOCHS[epoch_key]
 
-@dp.callback_query(F.data.startswith("epoch_"))
-async def epoch_handler(callback: CallbackQuery):
-    epoch = EPOCHS.get(callback.data)
-    if not epoch:
-        await callback.answer("Ошибка")
-        return
+    await message.answer("🧠 Угадай эпоху по описанию и изображению:")
 
-    await callback.message.answer("⏳ Генерирую изображение...")
-
-    model = await get_model(callback.from_user.id)
+    model = await get_model(message.from_user.id)
     image_url = await generate_image(epoch["prompt"], model)
 
     if image_url == "ERROR":
-        await callback.message.answer("Ошибка генерации изображения")
+        await message.answer("Ошибка генерации изображения")
         return
 
-    await callback.message.answer_photo(
+    await message.answer_photo(
         photo=image_url,
-        caption=f"{epoch['title']}\n\n{epoch['text']}"
+        caption=epoch["text"]
     )
 
+    await message.answer(
+        "Какой это период?",
+        reply_markup=quiz_kb
+    )
+
+@dp.callback_query(F.data.startswith("answer_"))
+async def answer_handler(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    correct_key = current_epoch.get(user_id)
+
+    if not correct_key:
+        await callback.answer("Начни с /start")
+        return
+
+    user_answer = callback.data.replace("answer_", "")
+    correct_answer = correct_key.replace("epoch_", "")
+
+    if user_answer == correct_answer:
+        await callback.message.answer("✅ Правильно!")
+    else:
+        right = EPOCHS[correct_key]["answer"]
+        await callback.message.answer(
+            f"❌ Неверно.\nПравильный ответ: {right}"
+        )
+
+    await callback.message.answer(
+        "Хочешь попробовать ещё?",
+        reply_markup=next_kb
+    )
+
+    await callback.answer()
+
+@dp.callback_query(F.data == "next_quiz")
+async def next_quiz(callback: CallbackQuery):
+    await start_cmd(callback.message)
     await callback.answer()
 
 # =============================
@@ -197,7 +229,7 @@ async def epoch_handler(callback: CallbackQuery):
 
 async def main():
     await init_db()
-    print("BOT STARTED")
+    print("QUIZ BOT STARTED")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
