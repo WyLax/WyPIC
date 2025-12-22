@@ -179,7 +179,7 @@ async def model_click(callback: CallbackQuery):
     await callback.answer()
 
 
-dp.message(Command("text"))
+@dp.message(Command("text"))
 async def cmd_text(message: Message, command: Command):
     await add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
 
@@ -189,10 +189,10 @@ async def cmd_text(message: Message, command: Command):
         await message.reply("Пожалуйста, укажи текстовый запрос после команды /text")
         return
 
-    gen = await message.reply("Генерирую картинку, подожди...")  
+    gen = await message.reply("Думаю...")  
 
 
-    await message.reply(await generate_text(user_text)) 
+    await gen.edit_text(aeait generate_text(user_text))
 
 
 
