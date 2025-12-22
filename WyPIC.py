@@ -240,7 +240,7 @@ async def cmd_image(message: Message, command: Command):
 #-----------------------------
 
 async def main():
-    print("БАННННН....")
+    print("БАНННН....")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
