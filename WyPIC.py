@@ -89,7 +89,7 @@ async def generate_text(epoch_hint: str, epoch_name: str) -> str:
         )
         return response.choices[0].message.content
     except:
-        return None
+        return "🤔 Я задумалась и пока не могу ответить, попробуй ещё раз."
 
 # =============================
 # EPOCH DATA
@@ -120,6 +120,7 @@ EPOCHS = {
 # =============================
 # QUIZ STATE
 # =============================
+# Словарь message_id → epoch_key
 current_epoch = {}
 
 # =============================
@@ -152,36 +153,36 @@ async def start_cmd(message: Message):
     await send_random_quiz(message)
 
 async def send_random_quiz(message: Message):
+    # 1. Выбираем случайную эпоху
     epoch_key = random.choice(list(EPOCHS.keys()))
-    current_epoch[message.from_user.id] = epoch_key
     epoch = EPOCHS[epoch_key]
+
+    # 2. Генерация текста и картинки для ЭТОЙ эпохи
     model = await get_model(message.from_user.id)
-
-    # Отправляем сообщение о генерации задания
-    status_msg = await message.answer("🎨 Генерирую задание...")
-
-    # Генерация текста и картинки
     text = await generate_text(epoch["hint"], epoch["answer"])
     image_url = await generate_image(epoch["image_prompt"], model)
 
-    # Если генерация не удалась
-    if text is None or image_url is None:
-        await status_msg.edit_text("🤔 Я задумалась и пока не могу сгенерировать задание, попробуй ещё раз.")
+    if image_url is None:
+        await message.answer("🤔 Я задумалась и пока не могу сгенерировать картинку, попробуй ещё раз.")
         return
 
-    # Если все ок, заменяем сообщение на картинку с текстом и кнопками
-    await status_msg.delete()
-    await message.answer_photo(photo=image_url, caption=text, reply_markup=get_quiz_kb())
+    # 3. Отправляем картинку с кнопками прямо под фото
+    sent_msg = await message.answer_photo(photo=image_url, caption=text, reply_markup=get_quiz_kb())
+
+    # 4. Сохраняем epoch_key для конкретного message_id
+    current_epoch[sent_msg.message_id] = epoch_key
 
 @dp.callback_query(F.data.startswith("answer_"))
 async def answer_handler(callback: CallbackQuery):
     user_id = callback.from_user.id
-    correct_key = current_epoch.get(user_id)
+    message_id = callback.message.message_id
+    correct_key = current_epoch.get(message_id)
 
     if not correct_key:
         await callback.answer("Начни с /start")
         return
 
+    # Проверяем выбранную кнопку с epoch_key
     user_answer = callback.data.replace("answer_", "")
     correct_answer_key = correct_key.replace("epoch_", "")
 
