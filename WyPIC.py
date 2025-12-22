@@ -178,17 +178,34 @@ async def model_click(callback: CallbackQuery):
 
     await callback.answer()
 
+
+dp.message(Command("text"))
+async def cmd_text(message: Message, command: Command):
+    await add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
+
+    user_text = command.args 
+
+    if not user_text:
+        await message.reply("Пожалуйста, укажи текстовый запрос после команды /text")
+        return
+
+    gen = await message.reply("Генерирую картинку, подожди...")  
+
+
+    await message.reply(await generate_text(user_text)) 
+
+
+
 @dp.message(Command("image"))
 async def cmd_image(message: Message, command: Command):
     await add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
 
-    user_text = command.args  # текст после /image
+    user_text = command.args 
 
     if not user_text:
         await message.reply("Пожалуйста, укажи промпт для картинки после команды /image")
         return
 
-    await message.reply(f"Ты запросил картинку с промптом: {user_text}")
 
     gen = await message.reply("Генерирую картинку, подожди...")  
 
