@@ -12,6 +12,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 API_TOKEN = os.getenv("API_TOKEN")
+pp = '''Ты — эксперт по истории чёрной металлургии в России (X–XVIII вв.) и за рубежом. Отвечай только по истории, технологиям, экономике и социальным аспектам чёрной металлургии.
+Если вопрос не по теме, отвечай: «Извините, могу помочь только по теме чёрной металлургии X–XVIII вв.»
+Давай ответы с фактами, датами, центрами и технологическими приёмами, без приветствий и посторонних комментариев.'''
 
 #g4f
 client = Client()
@@ -192,7 +195,7 @@ async def cmd_text(message: Message, command: Command):
     gen = await message.reply("Думаю...")  
 
 
-    await gen.edit_text(await generate_text(user_text))
+    await gen.edit_text(await generate_text(f'{pp}\n\nЗапрос пользователя: {user_text}'))
 
 
 
