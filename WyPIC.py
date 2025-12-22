@@ -192,7 +192,7 @@ async def cmd_text(message: Message, command: Command):
     gen = await message.reply("Думаю...")  
 
 
-    await gen.edit_text(aeait generate_text(user_text))
+    await gen.edit_text(await generate_text(user_text))
 
 
 
