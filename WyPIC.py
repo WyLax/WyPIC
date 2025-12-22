@@ -77,9 +77,8 @@ async def generate_text(epoch_hint: str, epoch_name: str) -> str:
                 {
                     "role": "system",
                     "content": (
-                        "Ты историк. Пиши краткое информативное описание "
-                        "развития черной металлургии в России строго для заданной эпохи. "
-                        "НЕ упоминай другие века или эпохи."
+                        "Ты историк. Пиши краткое описание развития черной металлургии в России "
+                        "строго для заданной эпохи. НЕ упоминай другие века."
                     )
                 },
                 {
@@ -90,7 +89,7 @@ async def generate_text(epoch_hint: str, epoch_name: str) -> str:
         )
         return response.choices[0].message.content
     except:
-        return "🤔 Я задумалась и пока не могу ответить, попробуй ещё раз."
+        return None
 
 # =============================
 # EPOCH DATA
@@ -158,13 +157,20 @@ async def send_random_quiz(message: Message):
     epoch = EPOCHS[epoch_key]
     model = await get_model(message.from_user.id)
 
+    # Отправляем сообщение о генерации задания
+    status_msg = await message.answer("🎨 Генерирую задание...")
+
+    # Генерация текста и картинки
     text = await generate_text(epoch["hint"], epoch["answer"])
     image_url = await generate_image(epoch["image_prompt"], model)
 
-    if image_url is None:
-        await message.answer("🤔 Я задумалась и пока не могу сгенерировать картинку, попробуй ещё раз.")
+    # Если генерация не удалась
+    if text is None or image_url is None:
+        await status_msg.edit_text("🤔 Я задумалась и пока не могу сгенерировать задание, попробуй ещё раз.")
         return
 
+    # Если все ок, заменяем сообщение на картинку с текстом и кнопками
+    await status_msg.delete()
     await message.answer_photo(photo=image_url, caption=text, reply_markup=get_quiz_kb())
 
 @dp.callback_query(F.data.startswith("answer_"))
