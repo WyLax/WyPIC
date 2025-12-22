@@ -18,7 +18,7 @@ client = Client()
 translator = Translator()
 
 #бот
-bot = Bot(API_TOKEN)
+bot = Bot(API_TOKEN) 
 dp = Dispatcher()
 
 #aiosqlite
