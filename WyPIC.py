@@ -13,7 +13,7 @@ from aiogram.types import (
 )
 
 import aiosqlite
-from g4f.client import Client
+from g4f.client import Client, AsyncClient
 
 # =============================
 # ENV
@@ -29,6 +29,7 @@ API_TOKEN = os.getenv("API_TOKEN")
 bot = Bot(API_TOKEN)
 dp = Dispatcher()
 client = Client()
+async_client = AsyncClient()
 
 # =============================
 # DATABASE
@@ -65,7 +66,7 @@ async def get_model(user_id):
             return row[0] if row else "flux"
 
 # =============================
-# IMAGE GENERATION
+# AI GENERATION
 # =============================
 
 async def generate_image(prompt: str, model: str) -> str:
@@ -76,57 +77,67 @@ async def generate_image(prompt: str, model: str) -> str:
             response_format="url"
         )
         return response.data[0].url
-    except Exception:
+    except:
         return "ERROR"
 
+async def generate_text(epoch_hint: str) -> str:
+    try:
+        response = await async_client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Ты историк. Пиши краткое, но информативное описание "
+                        "развития черной металлургии в России для угадайки. "
+                        "НЕ упоминай века, даты и названия эпох напрямую."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": f"Опиши металлургию России для периода: {epoch_hint}"
+                }
+            ]
+        )
+        return response.choices[0].message.content
+    except:
+        return "Ошибка генерации текста."
+
 # =============================
-# EPOCH DATA
+# EPOCH DATA (СКРЫТЫЕ)
 # =============================
 
 EPOCHS = {
     "epoch_10_12": {
+        "hint": "раннее средневековье, домницы, болотная руда",
         "answer": "X–XII век",
-        "text": (
-            "Металлургия носила ремесленный характер. "
-            "Использовались домницы, болотная руда, ручной труд кузнецов."
-        ),
-        "prompt": (
-            "Ancient Rus X–XII century, iron smelting in bloomery furnace, "
-            "old russian blacksmiths, clay furnace, fire and glowing metal, "
-            "forest landscape, historical reconstruction, realistic, cinematic, 4k"
+        "image_prompt": (
+            "Ancient Rus, bloomery furnace, iron smelting, old russian blacksmiths, "
+            "clay furnace, fire, forest landscape, realistic, cinematic, 4k"
         )
     },
     "epoch_13_15": {
+        "hint": "развитие городов, кузнечные слободы, оружие",
         "answer": "XIII–XV век",
-        "text": (
-            "Производство железа расширяется вместе с ростом городов. "
-            "Формируются кузнечные слободы, возрастает спрос на оружие."
-        ),
-        "prompt": (
-            "Medieval Russia XIII–XV century, blacksmith settlement, iron forging, "
-            "early furnaces, historical realism, cinematic lighting"
+        "image_prompt": (
+            "Medieval Russia, blacksmith settlement, iron forging, early furnaces, "
+            "historical realism, cinematic lighting"
         )
     },
     "epoch_16_17": {
+        "hint": "первые мануфактуры, водяные колеса",
         "answer": "XVI–XVII век",
-        "text": (
-            "Появляются первые мануфактуры, используются водяные механизмы. "
-            "Металлургия выходит за рамки ремесла."
-        ),
-        "prompt": (
-            "Russia XVI–XVII century, early iron manufactory, water wheel, "
-            "industrial furnaces, workers, realistic historical scene, 4k"
+        "image_prompt": (
+            "Russia early modern period, iron manufactory, water wheel, workers, "
+            "industrial furnaces, realistic, 4k"
         )
     },
     "epoch_18": {
+        "hint": "Урал, доменные печи, промышленный масштаб",
         "answer": "XVIII век",
-        "text": (
-            "Формируется крупная промышленная металлургия. "
-            "Уральские заводы и доменные печи обеспечивают массовую выплавку чугуна."
-        ),
-        "prompt": (
-            "Russia XVIII century, Ural ironworks, blast furnace, industrial scale, "
-            "smoke, fire, workers, Demidov factories, cinematic realism, 4k"
+        "image_prompt": (
+            "Russia 18th century, Ural ironworks, blast furnace, smoke, fire, "
+            "industrial scale, cinematic realism, 4k"
         )
     }
 }
@@ -175,7 +186,9 @@ async def start_cmd(message: Message):
     await message.answer("🧠 Угадай эпоху по описанию и изображению:")
 
     model = await get_model(message.from_user.id)
-    image_url = await generate_image(epoch["prompt"], model)
+
+    text = await generate_text(epoch["hint"])
+    image_url = await generate_image(epoch["image_prompt"], model)
 
     if image_url == "ERROR":
         await message.answer("Ошибка генерации изображения")
@@ -183,7 +196,7 @@ async def start_cmd(message: Message):
 
     await message.answer_photo(
         photo=image_url,
-        caption=epoch["text"]
+        caption=text
     )
 
     await message.answer(
