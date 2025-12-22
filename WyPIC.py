@@ -173,6 +173,9 @@ await message.answer(
     parse_mode='html'  
 )
 
+
+
+
 @dp.callback_query()
 async def model_click(callback: CallbackQuery):
 await add_user(callback.from_user.id, callback.from_user.username, callback.from_user.first_name)
@@ -202,11 +205,24 @@ if user_model != await get_cell(callback.from_user.id, 'model'):
 
 await callback.answer()
 
-@dp.message()
-async def handle_message(message: types.Message):
+
+
+@dp.message(Command("image"))
+async def cmd_image(message: Message, command: Command):
+    
+
+
 await add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
 
-user_text = message.text  
+
+user_text = command.args  # текст после /image
+
+    if not prompt:
+        await message.reply("Пожалуйста, укажи промпт для картинки после команды /image")
+        return
+
+    await message.reply(f"Ты запросил картинку с промптом: {prompt}")
+ 
 gen = await message.reply("Генерирую картинку, подожди...")  
 
 user_text = await translate_to_english(user_text)  
