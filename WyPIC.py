@@ -1,212 +1,249 @@
 import asyncio
-import os
-import random
-from dotenv import load_dotenv
-
-from aiogram import Bot, Dispatcher, F
+from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-
+from aiogram import F
+from g4f.client import Client
+from g4f.client import AsyncClient
+from googletrans import Translator, LANGUAGES
 import aiosqlite
-from g4f.client import Client, AsyncClient
+import os
+from dotenv import load_dotenv
 
-# =============================
-# ENV
-# =============================
 load_dotenv()
 API_TOKEN = os.getenv("API_TOKEN")
 
-# =============================
-# BOT / CLIENT
-# =============================
+#g4f
+
+client = Client()
+translator = Translator()
+
+#бот
+
 bot = Bot(API_TOKEN)
 dp = Dispatcher()
-client = Client()
-async_client = AsyncClient()
 
-# =============================
-# DATABASE
-# =============================
-DB_NAME = "WyPIC.db"
+#aiosqlite
 
-async def init_db():
-    async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY,
-                user_name TEXT,
-                name TEXT,
-                model TEXT DEFAULT 'flux'
-            )
-        """)
-        await db.commit()
+base = 'WyPIC.db'
+models1 = [
+"flux",
+"flux-pro",
+"flux-realism",
+"flux-3d",
+"ProdiaStableDiffusionXL"
+]
+models2 = [
+"Prodia",
+"stability-ai",
+"Pixart",
+"PixartLCM"
+]
+models1n = [
+"Flux",
+"Flux Pro",
+"Flux Realism",
+"Flux 3D",
+"Prodia Stable Diffusion XL"
+]
+models2n = [
+"Prodia",
+"Stability AI",
+"Pixart",
+"Pixart LCM"
+]
+
+#-----------------------------
+
+#sqlite
+
+#-----------------------------
 
 async def add_user(user_id, username, name):
-    async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute(
-            "INSERT OR IGNORE INTO users (id, user_name, name) VALUES (?, ?, ?)",
-            (user_id, username, name)
-        )
-        await db.commit()
+async with aiosqlite.connect(base) as db:
+await db.execute(
+"INSERT OR IGNORE INTO users (id, user_name, name) VALUES (?, ?, ?)",
+(user_id, username, name)
+)
+await db.commit()
 
-async def get_model(user_id):
-    async with aiosqlite.connect(DB_NAME) as db:
-        async with db.execute("SELECT model FROM users WHERE id = ?", (user_id,)) as cursor:
-            row = await cursor.fetchone()
-            return row[0] if row else "flux"
+async def upd_cell(user_id, column_name, value):
+async with aiosqlite.connect(base) as db:
+await db.execute(
+f'UPDATE users SET {column_name} = ? WHERE id = ?',
+(value, user_id)
+)
+await db.commit()
 
-# =============================
-# AI GENERATION
-# =============================
-async def generate_image(prompt: str, model: str) -> str:
-    try:
-        response = await client.images.async_generate(
-            model=model,
-            prompt=prompt,
-            response_format="url"
-        )
-        return response.data[0].url
-    except:
-        return None
+async def get_cell(user_id, column_name):
+async with aiosqlite.connect(base) as db:
+db.row_factory = aiosqlite.Row
+async with db.execute(f"SELECT {column_name} FROM users WHERE id = ?", (user_id,)) as cursor:
+row = await cursor.fetchone()
+if row:
+return row[column_name]
+return None
 
-async def generate_text(epoch_hint: str, epoch_name: str) -> str:
-    try:
-        response = await async_client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Ты историк. Пиши краткое описание развития черной металлургии в России "
-                        "строго для заданной эпохи. НЕ упоминай другие века."
-                    )
-                },
-                {
-                    "role": "user",
-                    "content": f"Опиши металлургию России для эпохи {epoch_name} ({epoch_hint})"
-                }
-            ]
-        )
-        return response.choices[0].message.content
-    except:
-        return "🤔 Я задумалась и пока не могу ответить, попробуй ещё раз."
+#-----------------------------
 
-# =============================
-# EPOCH DATA
-# =============================
-EPOCHS = {
-    "epoch_10_12": {
-        "hint": "домницы, болотные руды, ручной труд",
-        "answer": "X–XII век",
-        "image_prompt": "Ancient Rus, bloomery furnace, blacksmiths, clay furnace, forest, realistic, cinematic, 4k"
-    },
-    "epoch_13_15": {
-        "hint": "развитие городов, кузнечные слободы, производство оружия",
-        "answer": "XIII–XV век",
-        "image_prompt": "Medieval Russia, blacksmith settlement, iron forging, early furnaces, historical realism, cinematic lighting"
-    },
-    "epoch_16_17": {
-        "hint": "первые мануфактуры, водяные колеса, контроль государства",
-        "answer": "XVI–XVII век",
-        "image_prompt": "Russia early modern period, iron manufactory, water wheel, workers, industrial furnaces, realistic, 4k"
-    },
-    "epoch_18": {
-        "hint": "Урал, доменные печи, промышленный масштаб",
-        "answer": "XVIII век",
-        "image_prompt": "Russia 18th century, Ural ironworks, blast furnace, smoke, fire, industrial scale, cinematic realism, 4k"
-    }
-}
+#генерация картинки
 
-# =============================
-# QUIZ STATE
-# =============================
-# Словарь message_id → epoch_key
-current_epoch = {}
+#-----------------------------
 
-# =============================
-# KEYBOARDS
-# =============================
-def get_quiz_kb():
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="X–XII век", callback_data="answer_10_12")],
-            [InlineKeyboardButton(text="XIII–XV век", callback_data="answer_13_15")],
-            [InlineKeyboardButton(text="XVI–XVII век", callback_data="answer_16_17")],
-            [InlineKeyboardButton(text="XVIII век", callback_data="answer_18")]
-        ]
-    )
+async def generate_image(prompt, model) -> str:
 
-def get_next_kb():
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🎲 Следующий вопрос", callback_data="next_quiz")]
-        ]
-    )
+try:  
+    response = await client.images.async_generate(  
+        model = model,  
+        prompt = prompt,  
+        response_format = "url"  
+    )  
+    return response.data[0].url  
 
-# =============================
-# HANDLERS
-# =============================
+except:  
+    return f"Ошибка"
+
+#-----------------------------
+
+#генерация текста
+
+#-----------------------------
+
+async def generate_text(prompt: str) -> str:
+
+try:  
+    async_client = AsyncClient()  
+    response = await async_client.chat.completions.create(  
+        model = "gpt-4",  
+        messages = [{"role": "user", "content": prompt}],  
+    )  
+    return response.choices[0].message.content  
+
+except:  
+    return f"Ошибка"
+
+#-----------------------------
+
+#перевод
+
+#-----------------------------
+
+async def translate_to_english(text: str) -> str:
+
+translation = await translator.translate(  
+    text,  
+    src='ru',  
+    dest='en'  
+)  
+
+return translation.text
+
+#-----------------------------
+
+#обработчики бота
+
+#-----------------------------
+
 @dp.message(Command("start"))
-async def start_cmd(message: Message):
-    await add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
-    await message.answer("👋 Привет! Добро пожаловать в викторину по металлургии России. Попробуй угадать эпоху!")
-    await send_random_quiz(message)
+async def start_cmd(message: types.Message):
+await add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
 
-async def send_random_quiz(message: Message):
-    # 1. Выбираем случайную эпоху
-    epoch_key = random.choice(list(EPOCHS.keys()))
-    epoch = EPOCHS[epoch_key]
+await message.reply("Поивеет! Я WyPIC! Я могу нарисовать абсолютно всё, что ты захочешь. Просто отпаравь мне текстовое описание, и я создам изображение.")  
+await message.answer("Чтобы выбрать стиль или модель нейросети, используй команду /models")
 
-    # 2. Генерация текста и картинки для ЭТОЙ эпохи
-    model = await get_model(message.from_user.id)
-    text = await generate_text(epoch["hint"], epoch["answer"])
-    image_url = await generate_image(epoch["image_prompt"], model)
+@dp.message(Command("models"))
+async def models_cmd(message: Message):
+await add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
 
-    if image_url is None:
-        await message.answer("🤔 Я задумалась и пока не могу сгенерировать картинку, попробуй ещё раз.")
-        return
+keyboard = InlineKeyboardMarkup(  
+    inline_keyboard=[  
+        [InlineKeyboardButton(text=models1n[i], callback_data=models1[i]),  
+         InlineKeyboardButton(text=models2n[i], callback_data=models2[i])]  
+        for i in range(len(models2))  
+    ] + [  
+        [InlineKeyboardButton(text=models1n[-1], callback_data=models1[-1])]  
+    ]  
+)  
 
-    # 3. Отправляем картинку с кнопками прямо под фото
-    sent_msg = await message.answer_photo(photo=image_url, caption=text, reply_markup=get_quiz_kb())
+user_model = await get_cell(message.from_user.id, 'model')  
 
-    # 4. Сохраняем epoch_key для конкретного message_id
-    current_epoch[sent_msg.message_id] = epoch_key
+await message.answer(  
+    f"<b>Установлено:</b> <code>{user_model}</code>\n<b>Список моделей нейросетей:</b>",  
+    reply_markup=keyboard,  
+    parse_mode='html'  
+)
 
-@dp.callback_query(F.data.startswith("answer_"))
-async def answer_handler(callback: CallbackQuery):
-    user_id = callback.from_user.id
-    message_id = callback.message.message_id
-    correct_key = current_epoch.get(message_id)
+@dp.callback_query()
+async def model_click(callback: CallbackQuery):
+await add_user(callback.from_user.id, callback.from_user.username, callback.from_user.first_name)
 
-    if not correct_key:
-        await callback.answer("Начни с /start")
-        return
+keyboard = InlineKeyboardMarkup(  
+    inline_keyboard=[  
+        [InlineKeyboardButton(text=models1n[i], callback_data=models1[i]),  
+         InlineKeyboardButton(text=models2n[i], callback_data=models2[i])]  
+        for i in range(len(models2))  
+    ] + [  
+        [InlineKeyboardButton(text=models1n[-1], callback_data=models1[-1])]  
+    ]  
+)  
 
-    # Проверяем выбранную кнопку с epoch_key
-    user_answer = callback.data.replace("answer_", "")
-    correct_answer_key = correct_key.replace("epoch_", "")
+user_model = callback.data  
+if user_model != await get_cell(callback.from_user.id, 'model'):  
 
-    if user_answer == correct_answer_key:
-        await callback.message.answer("✅ Правильно!")
-    else:
-        right = EPOCHS[correct_key]["answer"]
-        await callback.message.answer(f"❌ Неверно.\nПравильный ответ: {right}")
+    await upd_cell(callback.from_user.id, 'model', user_model)  
 
-    await callback.message.answer("Хочешь попробовать ещё?", reply_markup=get_next_kb())
-    await callback.answer()
+    await callback.message.edit_text(  
+    f"<b>Установлено:</b> <code>{user_model}</code>\n<b>Список моделей нейросетей:</b>",  
+    reply_markup=keyboard,  
+    parse_mode='html'  
+    )  
 
-@dp.callback_query(F.data == "next_quiz")
-async def next_quiz(callback: CallbackQuery):
-    await send_random_quiz(callback.message)
-    await callback.answer()
 
-# =============================
-# MAIN
-# =============================
+
+await callback.answer()
+
+@dp.message()
+async def handle_message(message: types.Message):
+await add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
+
+user_text = message.text  
+gen = await message.reply("Генерирую картинку, подожди...")  
+
+user_text = await translate_to_english(user_text)  
+user_model = await get_cell(message.from_user.id, 'model')  
+
+image_url = await generate_image(user_text, user_model)  
+
+await gen.delete()  
+
+if image_url.startswith("Ошибка"):  
+    await message.reply('Прости, я задумался, повтори свой запрос')  
+else:  
+    try:  
+        await message.reply_photo(  
+            photo = image_url,  
+            caption = f'<b>Запрос:</b> <code>{user_text}</code>\n<b>Модель:</b> <code>{user_model}</code>',  
+            parse_mode = 'html'  
+        )  
+
+        await bot.send_photo(  
+            chat_id = '-1002283294809',  
+            photo = image_url,  
+            caption = f'• <code>{message.from_user.id}</code>\n• <code>{message.from_user.username}</code>\n• <code>{message.from_user.first_name}</code>\n\n• <b>Запрос</b>: <code>{user_text}</code>\n• <b>Модель:</b> <code>{user_model}</code>',  
+            parse_mode = 'html'  
+        )  
+    except:  
+        await message.reply('Прости, я задумался, повтори свой запрос')
+
+#-----------------------------
+
+#запуска бота
+
+#-----------------------------
+
 async def main():
-    await init_db()
-    print("QUIZ BOT STARTED")
-    await dp.start_polling(bot)
+print("БАННННН....")
+await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+asyncio.run(main())
