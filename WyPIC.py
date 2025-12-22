@@ -78,7 +78,7 @@ async def generate_image(prompt: str, model: str) -> str:
         )
         return response.data[0].url
     except:
-        return "ERROR"
+        return None
 
 async def generate_text(epoch_hint: str) -> str:
     try:
@@ -88,20 +88,20 @@ async def generate_text(epoch_hint: str) -> str:
                 {
                     "role": "system",
                     "content": (
-                        "Ты историк. Пиши краткое, но информативное описание "
-                        "развития черной металлургии в России для угадайки. "
-                        "НЕ упоминай века, даты и названия эпох напрямую."
+                        "Ты историк. Пиши краткое информативное описание "
+                        "развития черной металлургии в России. "
+                        "НЕ упоминай века и названия эпох."
                     )
                 },
                 {
                     "role": "user",
                     "content": f"Опиши металлургию России для периода: {epoch_hint}"
                 }
-            ]
+            ],
         )
         return response.choices[0].message.content
     except:
-        return "Ошибка генерации текста."
+        return "🤔 Я задумалась и пока не могу ответить, попробуй ещё раз."
 
 # =============================
 # EPOCH DATA (СКРЫТЫЕ)
@@ -111,34 +111,22 @@ EPOCHS = {
     "epoch_10_12": {
         "hint": "раннее средневековье, домницы, болотная руда",
         "answer": "X–XII век",
-        "image_prompt": (
-            "Ancient Rus, bloomery furnace, iron smelting, old russian blacksmiths, "
-            "clay furnace, fire, forest landscape, realistic, cinematic, 4k"
-        )
+        "image_prompt": "Ancient Rus, bloomery furnace, blacksmiths, clay furnace, forest, realistic, cinematic, 4k"
     },
     "epoch_13_15": {
-        "hint": "развитие городов, кузнечные слободы, оружие",
+        "hint": "развитие городов, кузнечные слободы, производство оружия",
         "answer": "XIII–XV век",
-        "image_prompt": (
-            "Medieval Russia, blacksmith settlement, iron forging, early furnaces, "
-            "historical realism, cinematic lighting"
-        )
+        "image_prompt": "Medieval Russia, blacksmith settlement, iron forging, early furnaces, historical realism, cinematic lighting"
     },
     "epoch_16_17": {
-        "hint": "первые мануфактуры, водяные колеса",
+        "hint": "первые мануфактуры, водяные колеса, контроль государства",
         "answer": "XVI–XVII век",
-        "image_prompt": (
-            "Russia early modern period, iron manufactory, water wheel, workers, "
-            "industrial furnaces, realistic, 4k"
-        )
+        "image_prompt": "Russia early modern period, iron manufactory, water wheel, workers, industrial furnaces, realistic, 4k"
     },
     "epoch_18": {
         "hint": "Урал, доменные печи, промышленный масштаб",
         "answer": "XVIII век",
-        "image_prompt": (
-            "Russia 18th century, Ural ironworks, blast furnace, smoke, fire, "
-            "industrial scale, cinematic realism, 4k"
-        )
+        "image_prompt": "Russia 18th century, Ural ironworks, blast furnace, smoke, fire, industrial scale, cinematic realism, 4k"
     }
 }
 
@@ -152,20 +140,22 @@ current_epoch = {}
 # KEYBOARDS
 # =============================
 
-quiz_kb = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(text="X–XII век", callback_data="answer_10_12")],
-        [InlineKeyboardButton(text="XIII–XV век", callback_data="answer_13_15")],
-        [InlineKeyboardButton(text="XVI–XVII век", callback_data="answer_16_17")],
-        [InlineKeyboardButton(text="XVIII век", callback_data="answer_18")]
-    ]
-)
+def get_quiz_kb():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="X–XII век", callback_data="answer_10_12")],
+            [InlineKeyboardButton(text="XIII–XV век", callback_data="answer_13_15")],
+            [InlineKeyboardButton(text="XVI–XVII век", callback_data="answer_16_17")],
+            [InlineKeyboardButton(text="XVIII век", callback_data="answer_18")]
+        ]
+    )
 
-next_kb = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(text="🎲 Следующий вопрос", callback_data="next_quiz")]
-    ]
-)
+def get_next_kb():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🎲 Следующий вопрос", callback_data="next_quiz")]
+        ]
+    )
 
 # =============================
 # HANDLERS
@@ -173,36 +163,28 @@ next_kb = InlineKeyboardMarkup(
 
 @dp.message(Command("start"))
 async def start_cmd(message: Message):
-    await add_user(
-        message.from_user.id,
-        message.from_user.username,
-        message.from_user.first_name
-    )
+    await add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
 
+    await message.answer("👋 Привет! Добро пожаловать в викторину по металлургии России. Попробуй угадать эпоху!")
+
+    await send_random_quiz(message)
+
+async def send_random_quiz(message: Message):
     epoch_key = random.choice(list(EPOCHS.keys()))
     current_epoch[message.from_user.id] = epoch_key
     epoch = EPOCHS[epoch_key]
-
-    await message.answer("🧠 Угадай эпоху по описанию и изображению:")
 
     model = await get_model(message.from_user.id)
 
     text = await generate_text(epoch["hint"])
     image_url = await generate_image(epoch["image_prompt"], model)
 
-    if image_url == "ERROR":
-        await message.answer("Ошибка генерации изображения")
+    if image_url is None:
+        await message.answer("🤔 Я задумалась и пока не могу сгенерировать картинку, попробуй ещё раз.")
         return
 
-    await message.answer_photo(
-        photo=image_url,
-        caption=text
-    )
-
-    await message.answer(
-        "Какой это период?",
-        reply_markup=quiz_kb
-    )
+    # Кнопки прямо под фото
+    await message.answer_photo(photo=image_url, caption=text, reply_markup=get_quiz_kb())
 
 @dp.callback_query(F.data.startswith("answer_"))
 async def answer_handler(callback: CallbackQuery):
@@ -214,26 +196,20 @@ async def answer_handler(callback: CallbackQuery):
         return
 
     user_answer = callback.data.replace("answer_", "")
-    correct_answer = correct_key.replace("epoch_", "")
+    correct_answer_key = correct_key.replace("epoch_", "")
 
-    if user_answer == correct_answer:
+    if user_answer == correct_answer_key:
         await callback.message.answer("✅ Правильно!")
     else:
         right = EPOCHS[correct_key]["answer"]
-        await callback.message.answer(
-            f"❌ Неверно.\nПравильный ответ: {right}"
-        )
+        await callback.message.answer(f"❌ Неверно.\nПравильный ответ: {right}")
 
-    await callback.message.answer(
-        "Хочешь попробовать ещё?",
-        reply_markup=next_kb
-    )
-
+    await callback.message.answer("Хочешь попробовать ещё?", reply_markup=get_next_kb())
     await callback.answer()
 
 @dp.callback_query(F.data == "next_quiz")
 async def next_quiz(callback: CallbackQuery):
-    await start_cmd(callback.message)
+    await send_random_quiz(callback.message)
     await callback.answer()
 
 # =============================
