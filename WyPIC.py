@@ -129,11 +129,11 @@ async def translate_to_english(text: str) -> str:
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message):
     await add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
-    #await message.reply("Привеет! Я WyPIC! Я могу нарисовать абсолютно всё, что ты захочешь. Просто отпаравь мне текстовое описание, и я создам изображение.")  
-    #await message.answer("Чтобы выбрать или модель нейросети, используй команду /models")
+    await message.reply("Привеет! Я WyPIC! Я могу нарисовать абсолютно всё, что ты захочешь. Просто отпаравь мне текстовое описание, и я создам изображение.")  
+    await message.answer("Чтобы выбрать или модель нейросети, используй команду /models")
 
-    await message.reply("Привеет! Я знаю всё о чёрной металлургии в России X–XVIII вв. Используй команды /text и /image чтобы общаться со мной.")  
-    await message.answer("Чтобы выбрать модель нейросети для генерации картинок, используй команду /models")
+    #await message.reply("Привеет! Я знаю всё о чёрной металлургии в России X–XVIII вв. Используй команды /text и /image чтобы общаться со мной.")  
+    #await message.answer("Чтобы выбрать модель нейросети для генерации картинок, используй команду /models")
 
 @dp.message(Command("models"))
 async def models_cmd(message: Message):
