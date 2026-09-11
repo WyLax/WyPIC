@@ -26,8 +26,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /root/WyPIC
+            cd /root/bots/WyPIC
             git fetch --all
             git reset --hard origin/main
-            systemctl daemon-reload
             systemctl restart wypic
